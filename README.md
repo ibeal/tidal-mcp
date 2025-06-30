@@ -5,9 +5,10 @@
 Most music platforms offer recommendations — Daily Discovery, Top Artists, New Arrivals, etc. — but even with the state-of-the-art system, they often feel too "aggregated". I wanted something more custom and context-aware.
 
 With TIDAL MCP, you can ask for things like:
-> *"Based on my last 10 favorites, find similar tracks — but only ones from recent years."*
+
+> _"Based on my last 10 favorites, find similar tracks — but only ones from recent years."_
 >
-> *"Find me tracks like those in this playlist, but slower and more acoustic."*
+> _"Find me tracks like those in this playlist, but slower and more acoustic."_
 
 The LLM filters and curates results using your input, finds similar tracks via TIDAL’s API, and builds new playlists directly in your account.
 
@@ -31,24 +32,26 @@ The LLM filters and curates results using your input, finds similar tracks via T
 ### Installation
 
 1. Clone this repository:
+
    ```bash
    git clone https://github.com/yuhuacheng/tidal-mcp.git
    cd tidal-mcp
    ```
 
 2. Create a virtual environment and install dependencies using uv:
+
    ```bash
    uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
 3. Install the package with all dependencies from the pyproject.toml file:
+
    ```bash
    uv pip install --editable .
    ```
 
    This will install all dependencies defined in the pyproject.toml file and set up the project in development mode.
-
 
 ## MCP Client Configuration
 
@@ -87,7 +90,35 @@ To add this MCP server to Claude Desktop, you need to update the MCP configurati
 Example scrrenshot of the MCP configuration in Claude Desktop:
 ![Claude MCP Configuration](./assets/claude_desktop_config.png)
 
-### Steps to Install MCP Configuration
+### Cursor Configuration
+
+For Cursor users, add this configuration to your MCP settings file (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "TIDAL Integration": {
+      "command": "/path/to/your/project/tidal-mcp/.venv/bin/python",
+      "env": {
+        "TIDAL_MCP_PORT": "5100"
+      },
+      "args": ["/path/to/your/project/tidal-mcp/start_mcp.py"]
+    }
+  }
+}
+```
+
+**Important**: Replace `/path/to/your/project/tidal-mcp` with the actual path to your project directory.
+
+#### Steps to Install MCP Configuration in Cursor
+
+1. Create or edit the MCP configuration file at `~/.cursor/mcp.json`
+2. Add the TIDAL Integration configuration above
+3. Update the paths to match your actual project location
+4. Save the file
+5. Restart Cursor to load the new MCP server
+
+### Steps to Install MCP Configuration in Claude Desktop
 
 1. Open Claude Desktop
 2. Go to Settings > Developer
@@ -97,13 +128,15 @@ Example scrrenshot of the MCP configuration in Claude Desktop:
 6. Restart Claude Desktop
 
 ## Suggested Prompt Starters
+
 Once configured, you can interact with your TIDAL account through a LLM by asking questions like:
 
-- *“Recommend songs like those in this playlist, but slower and more acoustic.”*
-- *“Create a playlist based on my top tracks, but focused on chill, late-night vibes.”*
-- *“Find songs like these in playlist XYZ but in languages other than English.”*
+- _“Recommend songs like those in this playlist, but slower and more acoustic.”_
+- _“Create a playlist based on my top tracks, but focused on chill, late-night vibes.”_
+- _“Find songs like these in playlist XYZ but in languages other than English.”_
 
-*💡 You can also ask the model to:*
+_💡 You can also ask the model to:_
+
 - Use more tracks as seeds to broaden the inspiration.
 - Return more recommendations if you want a longer playlist.
 - Or delete a playlist if you’re not into it — no pressure!
@@ -112,13 +145,26 @@ Once configured, you can interact with your TIDAL account through a LLM by askin
 
 The TIDAL MCP integration provides the following tools:
 
+### Authentication & Core Features
+
 - `tidal_login`: Authenticate with TIDAL through browser login flow
 - `get_favorite_tracks`: Retrieve your favorite tracks from TIDAL
 - `recommend_tracks`: Get personalized music recommendations
+
+### Playlist Management
+
 - `create_tidal_playlist`: Create a new playlist in your TIDAL account
 - `get_user_playlists`: List all your playlists on TIDAL
 - `get_playlist_tracks`: Retrieve all tracks from a specific playlist
 - `delete_tidal_playlist`: Delete a playlist from your TIDAL account
+
+### Search & Discovery
+
+- `search_tidal`: Comprehensive search across all TIDAL content types
+- `search_tracks`: Search specifically for tracks/songs
+- `search_albums`: Search specifically for albums
+- `search_artists`: Search specifically for artists
+- `search_playlists`: Search specifically for playlists
 
 ## License
 
