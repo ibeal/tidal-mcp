@@ -22,7 +22,7 @@ def find_uv_executable():
     uv_path = shutil.which("uv")
     if uv_path:
         return uv_path
-    
+
     # Check common installation locations
     common_locations = [
         os.path.expanduser("~/.local/bin/uv"),  # Linux/macOS local install
@@ -30,7 +30,7 @@ def find_uv_executable():
         "/usr/local/bin/uv",  # macOS Homebrew
         "/opt/homebrew/bin/uv",  # macOS Apple Silicon Homebrew
     ]
-    
+
     for location in common_locations:
         # Handle wildcards in paths
         if "*" in location:
@@ -41,7 +41,7 @@ def find_uv_executable():
                     return match
         elif os.path.isfile(location) and os.access(location, os.X_OK):
             return location
-    
+
     # If we can't find it, just return "uv" and let the system try to resolve it
     return "uv"
 
@@ -51,34 +51,38 @@ flask_process = None
 def start_flask_app():
     """Start the Flask app as a subprocess"""
     global flask_process
-    
+
     print("Starting TIDAL Flask app...")
-    
-    # Find uv executable
-    uv_executable = find_uv_executable()
-    print(f"Using uv executable: {uv_executable}")
-    
-    # Start the Flask app using uv
+
+    # Use the virtual environment python directly
+    venv_python = os.path.join(CURRENT_DIR, "..", ".venv", "bin", "python")
+    venv_python = os.path.normpath(venv_python)
+
+    # Check if venv python exists, otherwise fall back to system python
+    if os.path.exists(venv_python):
+        python_executable = venv_python
+        print(f"Using virtual environment Python: {python_executable}")
+    else:
+        python_executable = "python"
+        print(f"Virtual environment not found, using system Python: {python_executable}")
+
+    # Start the Flask app using the virtual environment python directly
     flask_process = subprocess.Popen([
-        uv_executable, "run",
-        "--with", "tidalapi",
-        "--with", "flask",
-        "--with", "requests",
-        "python", FLASK_APP_PATH
+        python_executable, FLASK_APP_PATH
     ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    
+
     # Optional: Read a few lines to ensure the app starts properly
     for _ in range(5):  # Read first 5 lines of output
         line = flask_process.stdout.readline()
         if line:
             print(f"Flask app: {line.decode().strip()}")
-    
+
     print("TIDAL Flask app started")
 
 def shutdown_flask_app():
     """Shutdown the Flask app subprocess when the MCP server exits"""
     global flask_process
-    
+
     if flask_process:
         print("Shutting down TIDAL Flask app...")
         # Try to terminate gracefully first
