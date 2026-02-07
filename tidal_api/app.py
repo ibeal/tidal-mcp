@@ -369,19 +369,230 @@ def delete_playlist(playlist_id: str, session: BrowserSession):
         playlist = session.playlist(playlist_id)
         if not playlist:
             return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
-            
+
         # Delete the playlist
         playlist.delete()
-        
+
         return jsonify({
             "status": "success",
             "message": f"Playlist with ID {playlist_id} was successfully deleted"
         })
-        
+
     except Exception as e:
         return jsonify({"error": f"Error deleting playlist: {str(e)}"}), 500
-    
-    
+
+
+@app.route('/api/playlists/<playlist_id>/tracks', methods=['POST'])
+@requires_tidal_auth
+def add_tracks_to_playlist(playlist_id: str, session: BrowserSession):
+    """
+    Add tracks to an existing TIDAL playlist.
+
+    Expected JSON payload:
+    {
+        "track_ids": [123456789, 987654321, ...]
+    }
+    """
+    try:
+        # Get request data
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        # Validate required fields
+        if 'track_ids' not in request_data or not request_data['track_ids']:
+            return jsonify({"error": "Missing 'track_ids' in request body or empty track list"}), 400
+
+        track_ids = request_data['track_ids']
+
+        # Validate track_ids is a list
+        if not isinstance(track_ids, list):
+            return jsonify({"error": "'track_ids' must be a list"}), 400
+
+        # Get the playlist object
+        playlist = session.playlist(playlist_id)
+        if not playlist:
+            return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
+
+        # Add tracks to the playlist
+        playlist.add(track_ids)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Added {len(track_ids)} track(s) to playlist",
+            "playlist_id": playlist_id,
+            "tracks_added": len(track_ids)
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Error adding tracks to playlist: {str(e)}"}), 500
+
+
+@app.route('/api/playlists/<playlist_id>/tracks', methods=['DELETE'])
+@requires_tidal_auth
+def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
+    """
+    Remove tracks from a TIDAL playlist.
+
+    Expected JSON payload (one of):
+    {
+        "track_ids": [123456789, 987654321, ...]  // Remove by track ID
+    }
+    OR
+    {
+        "indices": [0, 5, 10, ...]  // Remove by position
+    }
+    """
+    try:
+        # Get request data
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        # Get the playlist object
+        playlist = session.playlist(playlist_id)
+        if not playlist:
+            return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
+
+        removed_count = 0
+
+        # Remove by track IDs
+        if 'track_ids' in request_data:
+            track_ids = request_data['track_ids']
+            if not isinstance(track_ids, list):
+                return jsonify({"error": "'track_ids' must be a list"}), 400
+
+            for track_id in track_ids:
+                try:
+                    playlist.remove_by_id(track_id)
+                    removed_count += 1
+                except Exception as e:
+                    app.logger.warning(f"Could not remove track {track_id}: {str(e)}")
+
+        # Remove by indices
+        elif 'indices' in request_data:
+            indices = request_data['indices']
+            if not isinstance(indices, list):
+                return jsonify({"error": "'indices' must be a list"}), 400
+
+            # Sort indices in descending order to avoid shifting issues
+            for index in sorted(indices, reverse=True):
+                try:
+                    playlist.remove_by_index(index)
+                    removed_count += 1
+                except Exception as e:
+                    app.logger.warning(f"Could not remove track at index {index}: {str(e)}")
+        else:
+            return jsonify({"error": "Must provide either 'track_ids' or 'indices'"}), 400
+
+        return jsonify({
+            "status": "success",
+            "message": f"Removed {removed_count} track(s) from playlist",
+            "playlist_id": playlist_id,
+            "tracks_removed": removed_count
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Error removing tracks from playlist: {str(e)}"}), 500
+
+
+@app.route('/api/playlists/<playlist_id>', methods=['PATCH'])
+@requires_tidal_auth
+def update_playlist(playlist_id: str, session: BrowserSession):
+    """
+    Update a TIDAL playlist's title and/or description.
+
+    Expected JSON payload:
+    {
+        "title": "New playlist title",      // Optional
+        "description": "New description"    // Optional
+    }
+    """
+    try:
+        # Get request data
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        title = request_data.get('title')
+        description = request_data.get('description')
+
+        if not title and not description:
+            return jsonify({"error": "Must provide at least 'title' or 'description'"}), 400
+
+        # Get the playlist object
+        playlist = session.playlist(playlist_id)
+        if not playlist:
+            return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
+
+        # Update the playlist metadata
+        playlist.edit(title=title, description=description)
+
+        return jsonify({
+            "status": "success",
+            "message": "Playlist updated successfully",
+            "playlist_id": playlist_id,
+            "updated_fields": {
+                "title": title if title else playlist.name,
+                "description": description if description else playlist.description
+            }
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Error updating playlist: {str(e)}"}), 500
+
+
+@app.route('/api/playlists/<playlist_id>/tracks/move', methods=['POST'])
+@requires_tidal_auth
+def move_playlist_track(playlist_id: str, session: BrowserSession):
+    """
+    Move/reorder a track within a TIDAL playlist.
+
+    Expected JSON payload:
+    {
+        "from_index": 5,    // Current position of the track (0-based)
+        "to_index": 2       // New position for the track (0-based)
+    }
+    """
+    try:
+        # Get request data
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        if 'from_index' not in request_data or 'to_index' not in request_data:
+            return jsonify({"error": "Must provide both 'from_index' and 'to_index'"}), 400
+
+        from_index = request_data['from_index']
+        to_index = request_data['to_index']
+
+        # Validate indices are integers
+        if not isinstance(from_index, int) or not isinstance(to_index, int):
+            return jsonify({"error": "'from_index' and 'to_index' must be integers"}), 400
+
+        if from_index < 0 or to_index < 0:
+            return jsonify({"error": "Indices must be non-negative"}), 400
+
+        # Get the playlist object
+        playlist = session.playlist(playlist_id)
+        if not playlist:
+            return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
+
+        # Move the track
+        playlist.move(from_index, to_index)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Moved track from position {from_index} to {to_index}",
+            "playlist_id": playlist_id,
+            "from_index": from_index,
+            "to_index": to_index
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"Error moving track in playlist: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     import os
     

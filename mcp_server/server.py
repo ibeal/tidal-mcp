@@ -605,3 +605,226 @@ def delete_tidal_playlist(playlist_id: str) -> dict:
             "status": "error",
             "message": f"Failed to connect to TIDAL playlist service: {str(e)}"
         }
+
+
+@mcp.tool()
+@requires_tidal_auth
+def add_tracks_to_playlist(playlist_id: str, track_ids: list) -> TidalResponse:
+    """
+    Add tracks to an existing TIDAL playlist.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Add these songs to my playlist"
+    - "Add [track] to [playlist name]"
+    - "Put these tracks in my playlist"
+    - Any request to add songs/tracks to an existing playlist
+
+    This function adds tracks to a user's existing TIDAL playlist. The playlist
+    must already exist, and the user must have permission to edit it.
+
+    When processing the results of this tool:
+    1. Confirm how many tracks were added successfully
+    2. Provide clear feedback about the operation
+    3. If any tracks failed to add, explain why
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        track_ids: A list of TIDAL track IDs to add to the playlist (required)
+
+    Returns:
+        A dictionary containing the status of the operation and number of tracks added
+    """
+    # Validate inputs
+    if not playlist_id:
+        return {
+            "status": "error",
+            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
+        }
+
+    if not track_ids or not isinstance(track_ids, list):
+        return {
+            "status": "error",
+            "message": "track_ids must be a non-empty list of track IDs."
+        }
+
+    result = make_tidal_request(
+        f"/api/playlists/{playlist_id}/tracks",
+        params={"track_ids": track_ids},
+        method="POST"
+    )
+
+    return result
+
+
+@mcp.tool()
+@requires_tidal_auth
+def remove_tracks_from_playlist(playlist_id: str, track_ids: Optional[list] = None, indices: Optional[list] = None) -> TidalResponse:
+    """
+    Remove tracks from a TIDAL playlist by track IDs or position indices.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Remove this song from my playlist"
+    - "Delete tracks from [playlist name]"
+    - "Take out these songs from the playlist"
+    - Any request to remove songs/tracks from a playlist
+
+    This function removes specific tracks from a user's TIDAL playlist. You can remove
+    tracks either by their TIDAL IDs or by their position in the playlist (0-based index).
+
+    When processing the results of this tool:
+    1. Confirm how many tracks were removed successfully
+    2. Provide clear feedback about what was removed
+    3. If using indices, remind the user they are 0-based (first track is index 0)
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        track_ids: A list of TIDAL track IDs to remove (optional - use this OR indices)
+        indices: A list of track positions (0-based) to remove (optional - use this OR track_ids)
+
+    Returns:
+        A dictionary containing the status and number of tracks removed
+    """
+    # Validate inputs
+    if not playlist_id:
+        return {
+            "status": "error",
+            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
+        }
+
+    if not track_ids and not indices:
+        return {
+            "status": "error",
+            "message": "Must provide either track_ids or indices to remove tracks."
+        }
+
+    if track_ids and indices:
+        return {
+            "status": "error",
+            "message": "Provide either track_ids OR indices, not both."
+        }
+
+    params = {}
+    if track_ids:
+        params["track_ids"] = track_ids
+    if indices:
+        params["indices"] = indices
+
+    result = make_tidal_request(
+        f"/api/playlists/{playlist_id}/tracks",
+        params=params,
+        method="DELETE"
+    )
+
+    return result
+
+
+@mcp.tool()
+@requires_tidal_auth
+def update_playlist_metadata(playlist_id: str, title: Optional[str] = None, description: Optional[str] = None) -> TidalResponse:
+    """
+    Update a TIDAL playlist's title and/or description.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Rename my playlist to [new name]"
+    - "Change the playlist description"
+    - "Update playlist [name] with new title/description"
+    - Any request to modify playlist metadata
+
+    This function updates the title and/or description of a user's TIDAL playlist.
+    At least one of title or description must be provided.
+
+    When processing the results of this tool:
+    1. Confirm what was updated (title, description, or both)
+    2. Show the new values
+    3. Provide clear feedback that the changes were saved
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        title: New title for the playlist (optional)
+        description: New description for the playlist (optional)
+
+    Returns:
+        A dictionary containing the status and updated fields
+    """
+    # Validate inputs
+    if not playlist_id:
+        return {
+            "status": "error",
+            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
+        }
+
+    if not title and not description:
+        return {
+            "status": "error",
+            "message": "Must provide at least a new title or description."
+        }
+
+    params = {}
+    if title:
+        params["title"] = title
+    if description:
+        params["description"] = description
+
+    result = make_tidal_request(
+        f"/api/playlists/{playlist_id}",
+        params=params,
+        method="PATCH"
+    )
+
+    return result
+
+
+@mcp.tool()
+@requires_tidal_auth
+def reorder_playlist_tracks(playlist_id: str, from_index: int, to_index: int) -> TidalResponse:
+    """
+    Move/reorder a track within a TIDAL playlist.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Move track at position X to position Y"
+    - "Reorder my playlist"
+    - "Put song #5 at the beginning"
+    - Any request to change the order of tracks in a playlist
+
+    This function moves a track from one position to another within a playlist.
+    Indices are 0-based (first track is index 0).
+
+    When processing the results of this tool:
+    1. Confirm the track was moved successfully
+    2. Remind the user that indices are 0-based
+    3. Describe the move clearly (e.g., "moved from position 5 to position 2")
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        from_index: Current position of the track (0-based) (required)
+        to_index: New position for the track (0-based) (required)
+
+    Returns:
+        A dictionary containing the status of the move operation
+    """
+    # Validate inputs
+    if not playlist_id:
+        return {
+            "status": "error",
+            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
+        }
+
+    if from_index is None or to_index is None:
+        return {
+            "status": "error",
+            "message": "Both from_index and to_index are required."
+        }
+
+    if from_index < 0 or to_index < 0:
+        return {
+            "status": "error",
+            "message": "Indices must be non-negative (0-based indexing)."
+        }
+
+    result = make_tidal_request(
+        f"/api/playlists/{playlist_id}/tracks/move",
+        params={"from_index": from_index, "to_index": to_index},
+        method="POST"
+    )
+
+    return result
