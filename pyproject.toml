@@ -7,7 +7,7 @@ dependencies = [
     "flask>=3.1.0",
     "mcp[cli]>=1.6.0",
     "requests>=2.32.3",
-    "tidalapi>=0.8.3",
+    "tidalapi>=0.8.11",
 ]
 
 [build-system]

@@ -1,0 +1,9 @@
+services:
+  tidal-mcp:
+    build: .
+    container_name: tidal-mcp
+    ports:
+      - "5050:5050"
+    environment:
+      - TIDAL_MCP_PORT=5050
+    restart: unless-stopped

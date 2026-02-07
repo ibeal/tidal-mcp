@@ -25,11 +25,39 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 ### Prerequisites
 
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
+- Python 3.10+ OR Docker
+- [uv](https://github.com/astral-sh/uv) (Python package manager) - only needed for non-Docker installation
 - TIDAL subscription
 
 ### Installation
+
+#### Option 1: Docker (Recommended)
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yuhuacheng/tidal-mcp.git
+   cd tidal-mcp
+   ```
+
+2. Build and run with Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+   Or with Docker directly:
+   ```bash
+   docker build -t tidal-mcp .
+   docker run -d -p 5050:5050 --name tidal-mcp tidal-mcp
+   ```
+
+   The server will be available at `http://localhost:5050`.
+
+3. To customize the port, edit the `TIDAL_MCP_PORT` environment variable in `docker-compose.yml` or pass it to docker run:
+   ```bash
+   docker run -d -p 5100:5100 -e TIDAL_MCP_PORT=5100 --name tidal-mcp tidal-mcp
+   ```
+
+#### Option 2: Local Python Installation
 
 1. Clone this repository:
 
@@ -57,8 +85,89 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 ### Claude Desktop Configuration
 
-To add this MCP server to Claude Desktop, you need to update the MCP configuration file. Here's an example configuration:
-(you can specify the port by adding an optional `env` section with the `TIDAL_MCP_PORT` environment variable)
+To add this MCP server to Claude Desktop, you need to update the MCP configuration file.
+
+#### Option 1: Docker Configuration (if using Docker)
+
+```json
+{
+  "mcpServers": {
+    "TIDAL Integration": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        "host",
+        "-v",
+        "/tmp:/tmp",
+        "tidal-mcp"
+      ],
+      "env": {
+        "TIDAL_MCP_PORT": "5050"
+      }
+    }
+  }
+}
+```
+
+**Setup:**
+
+1. Build the Docker image:
+   ```bash
+   docker build -t tidal-mcp .
+   ```
+
+2. Authenticate with TIDAL (run this once):
+   ```bash
+   docker-compose -f docker-compose.auth.yml run --rm tidal-auth
+   ```
+
+   You'll see the OAuth URL in the output:
+   ```
+   ============================================================
+   TIDAL LOGIN REQUIRED
+   Please open this URL in your browser:
+
+   https://link.tidal.com/XXXXX
+
+   Expires in 300 seconds
+   ============================================================
+   ```
+
+   Open the URL in your browser, log in to TIDAL, and the session will be saved to `/tmp/tidal-session-oauth.json`.
+
+3. Update your Claude Desktop config (see above) and restart Claude Desktop.
+
+**Configuration details:**
+- `--network host` - Allows the container to use the host's network directly
+- `-v /tmp:/tmp` - Mounts the host's /tmp directory so the TIDAL session persists across container restarts
+
+To use a custom port:
+```json
+{
+  "mcpServers": {
+    "TIDAL Integration": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        "host",
+        "-v",
+        "/tmp:/tmp",
+        "-e",
+        "TIDAL_MCP_PORT=5100",
+        "tidal-mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Option 2: Local Python Configuration (if not using Docker)
 
 ```json
 {
