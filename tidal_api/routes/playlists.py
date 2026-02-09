@@ -1,6 +1,6 @@
 """Playlist route implementation logic."""
 from tidal_api.browser_session import BrowserSession
-from tidal_api.utils import format_track_data, bound_limit
+from tidal_api.utils import format_track_data, bound_limit, fetch_all_items
 
 
 def create_new_playlist(
@@ -75,18 +75,34 @@ def get_playlists(session: BrowserSession) -> dict:
 def get_tracks_from_playlist(
     session: BrowserSession,
     playlist_id: str,
-    limit: int = 100
+    limit: int = None
 ) -> dict:
     """Implementation logic for getting tracks from a playlist."""
     try:
-        limit = bound_limit(limit)
-
         playlist = session.playlist(playlist_id)
         if not playlist:
             return {"error": f"Playlist with ID {playlist_id} not found"}, 404
 
-        tracks = playlist.items(limit=limit)
-        track_list = [format_track_data(track) for track in tracks]
+        # Use pagination helper to fetch all tracks
+        # Create a fetch function that works with offset/limit
+        def fetch_page(limit, offset):
+            try:
+                return list(playlist.items(limit=limit, offset=offset))
+            except TypeError:
+                # If offset isn't supported, try without it
+                if offset == 0:
+                    return list(playlist.items(limit=limit))
+                else:
+                    return []
+
+        # Fetch all tracks (or up to limit if specified)
+        all_tracks = fetch_all_items(
+            fetch_page,
+            max_items=limit,
+            page_size=100
+        )
+
+        track_list = [format_track_data(track) for track in all_tracks]
 
         return {
             "playlist_id": playlist.id,

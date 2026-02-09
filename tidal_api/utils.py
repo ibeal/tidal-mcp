@@ -30,5 +30,54 @@ def bound_limit(limit: int, max_n: int = 50) -> int:
         limit = 1
     elif limit > max_n:
         limit = max_n
-    print(f"Limit set to {limit} (max {max_n})")    
+    print(f"Limit set to {limit} (max {max_n})")
     return limit
+
+
+def fetch_all_items(fetch_func, max_items=None, page_size=100):
+    """
+    Generic pagination helper to fetch all items from a paginated TIDAL API.
+
+    Args:
+        fetch_func: Callable that takes (limit, offset) and returns items
+        max_items: Optional maximum number of items to fetch (None = fetch all)
+        page_size: Number of items to fetch per page (default: 100)
+
+    Returns:
+        List of all fetched items
+    """
+    all_items = []
+    offset = 0
+
+    while True:
+        # Calculate how many items to fetch in this batch
+        if max_items is not None:
+            remaining = max_items - len(all_items)
+            if remaining <= 0:
+                break
+            batch_size = min(page_size, remaining)
+        else:
+            batch_size = page_size
+
+        # Fetch this batch
+        try:
+            items = fetch_func(limit=batch_size, offset=offset)
+
+            # If no items returned or empty list, we've reached the end
+            if not items:
+                break
+
+            all_items.extend(items)
+
+            # If we got fewer items than requested, we've reached the end
+            if len(items) < batch_size:
+                break
+
+            offset += len(items)
+
+        except Exception as e:
+            # If pagination fails, return what we have so far
+            print(f"Pagination stopped at offset {offset}: {str(e)}")
+            break
+
+    return all_items

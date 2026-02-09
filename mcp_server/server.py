@@ -293,7 +293,7 @@ def get_user_playlists() -> TidalResponse:
 
 @mcp.tool()
 @requires_tidal_auth
-def get_playlist_tracks(playlist_id: str, limit: int = 100) -> TidalResponse:
+def get_playlist_tracks(playlist_id: str, limit: int = None) -> TidalResponse:
     """
     Retrieves all tracks from a specified TIDAL playlist.
 
@@ -305,7 +305,8 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> TidalResponse:
     - "View contents of my TIDAL playlist"
     - Any request to see what songs/tracks are in a specific playlist
 
-    This function retrieves all tracks from a specific playlist in the user's TIDAL account.
+    This function retrieves tracks from a specific playlist in the user's TIDAL account.
+    By default, it fetches ALL tracks using automatic pagination.
     The playlist_id must be provided, which can be obtained from the get_user_playlists() function.
 
     When processing the results of this tool:
@@ -317,7 +318,7 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> TidalResponse:
 
     Args:
         playlist_id: The TIDAL ID of the playlist to retrieve (required)
-        limit: Maximum number of tracks to retrieve (default: 100)
+        limit: Maximum number of tracks to retrieve (default: None, meaning fetch all tracks)
 
     Returns:
         A dictionary containing the playlist information and all tracks in the playlist

@@ -188,8 +188,9 @@ def get_user_playlists(session: BrowserSession):
 def get_playlist_tracks(playlist_id: str, session: BrowserSession):
     """
     Get tracks from a specific TIDAL playlist.
+    By default, fetches ALL tracks using automatic pagination.
     """
-    limit = request.args.get('limit', default=100, type=int)
+    limit = request.args.get('limit', default=None, type=int)
     result, status_code = get_tracks_from_playlist(session, playlist_id, limit)
     return jsonify(result), status_code
 
