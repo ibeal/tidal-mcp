@@ -68,8 +68,10 @@ def make_tidal_request(endpoint: str, params: Optional[Dict[str, Any]] = None, m
             response = requests.get(url, params=params, timeout=10)
         elif method.upper() == "POST":
             response = requests.post(url, json=params, timeout=10)
+        elif method.upper() == "PATCH":
+            response = requests.patch(url, json=params, timeout=10)
         elif method.upper() == "DELETE":
-            response = requests.delete(url, timeout=10)
+            response = requests.delete(url, json=params, timeout=10)
         else:
             return {"status": "error", "message": f"Unsupported HTTP method: {method}"}
 
@@ -763,7 +765,6 @@ def search_playlists(query: str, limit: int = 20) -> SearchResults:
     result = make_tidal_request("/api/search/playlists", params)
 
     return format_search_results(query, "playlists", result, "playlists")
-            "message": f"Failed to connect to TIDAL playlist service: {str(e)}"
 
 
 @mcp.tool()
