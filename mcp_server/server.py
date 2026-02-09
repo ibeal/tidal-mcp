@@ -6,6 +6,30 @@ from typing import Optional, List, Dict, Any, Union
 
 from mcp_server.utils import start_flask_app, shutdown_flask_app, FLASK_APP_URL, FLASK_PORT
 
+# Import implementation functions
+from mcp_server.tools.auth import tidal_login as tidal_login_impl
+from mcp_server.tools.tracks import (
+    get_favorite_tracks as get_favorite_tracks_impl,
+    recommend_tracks as recommend_tracks_impl
+)
+from mcp_server.tools.playlists import (
+    create_tidal_playlist as create_tidal_playlist_impl,
+    get_user_playlists as get_user_playlists_impl,
+    get_playlist_tracks as get_playlist_tracks_impl,
+    delete_tidal_playlist as delete_tidal_playlist_impl,
+    add_tracks_to_playlist as add_tracks_to_playlist_impl,
+    remove_tracks_from_playlist as remove_tracks_from_playlist_impl,
+    update_playlist_metadata as update_playlist_metadata_impl,
+    reorder_playlist_tracks as reorder_playlist_tracks_impl
+)
+from mcp_server.tools.search import (
+    search_tidal as search_tidal_impl,
+    search_tracks as search_tracks_impl,
+    search_albums as search_albums_impl,
+    search_artists as search_artists_impl,
+    search_playlists as search_playlists_impl
+)
+
 # Print the port being used for debugging
 print(f"TIDAL MCP starting on port {FLASK_PORT}")
 
@@ -20,13 +44,16 @@ start_flask_app()
 atexit.register(shutdown_flask_app)
 
 # Constants
-VALID_SEARCH_TYPES = ["all", "tracks", "albums", "artists", "playlists"]
 AUTH_ERROR_MESSAGE = "You need to login to TIDAL first before using this feature. Please use the tidal_login() function."
-EMPTY_QUERY_ERROR = "Search query cannot be empty. Please provide a search term."
 
 # Type aliases for better code clarity
 TidalResponse = Dict[str, Any]
 SearchResults = Dict[str, Union[str, int, List[Dict[str, Any]]]]
+
+
+# =============================================================================
+# HELPER FUNCTIONS & DECORATORS
+# =============================================================================
 
 def requires_tidal_auth(func):
     """Decorator to check TIDAL authentication before executing a function."""
@@ -50,14 +77,6 @@ def requires_tidal_auth(func):
             }
     return wrapper
 
-def validate_search_query(query: str) -> Optional[TidalResponse]:
-    """Validate search query input. Returns error dict if invalid, None if valid."""
-    if not query or not query.strip():
-        return {
-            "status": "error",
-            "message": EMPTY_QUERY_ERROR
-        }
-    return None
 
 def make_tidal_request(endpoint: str, params: Optional[Dict[str, Any]] = None, method: str = "GET") -> TidalResponse:
     """Make a request to the TIDAL API with standardized error handling."""
@@ -95,20 +114,10 @@ def make_tidal_request(endpoint: str, params: Optional[Dict[str, Any]] = None, m
     except Exception as e:
         return {"status": "error", "message": f"Unexpected error: {str(e)}"}
 
-def format_search_results(query: str, result_type: str, data: TidalResponse, extract_key: str) -> SearchResults:
-    """Format search results consistently."""
-    if data["status"] != "success":
-        return data
 
-    response_data = data["data"]
-    items = response_data.get("results", {}).get(extract_key, {}).get("items", [])
-
-    return {
-        "status": "success",
-        "query": query,
-        result_type: items,
-        f"{result_type.rstrip('s')}_count": len(items)
-    }
+# =============================================================================
+# AUTHENTICATION TOOLS
+# =============================================================================
 
 @mcp.tool()
 def tidal_login() -> dict:
@@ -119,24 +128,12 @@ def tidal_login() -> dict:
     Returns:
         A dictionary containing authentication status and user information if successful
     """
-    try:
-        # Call your Flask endpoint for TIDAL authentication
-        response = requests.get(f"{FLASK_APP_URL}/api/auth/login")
+    return tidal_login_impl(FLASK_APP_URL)
 
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()
-        else:
-            error_data = response.json()
-            return {
-                "status": "error",
-                "message": f"Authentication failed: {error_data.get('message', 'Unknown error')}"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to connect to TIDAL authentication service: {str(e)}"
-        }
+
+# =============================================================================
+# TRACK & RECOMMENDATION TOOLS
+# =============================================================================
 
 @mcp.tool()
 def get_favorite_tracks(limit: int = 20) -> dict:
@@ -159,97 +156,8 @@ def get_favorite_tracks(limit: int = 20) -> dict:
         A dictionary containing track information including track ID, title, artist, album, and duration.
         Returns an error message if not authenticated or if retrieval fails.
     """
-    try:
-        # First, check if the user is authenticated
-        auth_check = requests.get(f"{FLASK_APP_URL}/api/auth/status")
-        auth_data = auth_check.json()
+    return get_favorite_tracks_impl(FLASK_APP_URL, limit)
 
-        if not auth_data.get("authenticated", False):
-            return {
-                "status": "error",
-                "message": "You need to login to TIDAL first before I can fetch your favorite tracks. Please use the tidal_login() function."
-            }
-
-        # Call your Flask endpoint to retrieve tracks with the specified limit
-        response = requests.get(f"{FLASK_APP_URL}/api/tracks", params={"limit": limit})
-
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 401:
-            return {
-                "status": "error",
-                "message": "Not authenticated with TIDAL. Please login first using tidal_login()."
-            }
-        else:
-            error_data = response.json()
-            return {
-                "status": "error",
-                "message": f"Failed to retrieve tracks: {error_data.get('error', 'Unknown error')}"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to connect to TIDAL tracks service: {str(e)}"
-        }
-
-def _get_tidal_recommendations(track_ids: list = None, limit_per_track: int = 20, filter_criteria: str = None) -> dict:
-    """
-    [INTERNAL USE] Gets raw recommendation data from TIDAL API.
-    This is a lower-level function primarily used by higher-level recommendation functions.
-    For end-user recommendations, use recommend_tracks instead.
-
-    Args:
-        track_ids: List of TIDAL track IDs to use as seeds for recommendations.
-        limit_per_track: Maximum number of recommendations to get per track (default: 20)
-        filter_criteria: Optional string describing criteria to filter recommendations
-                         (e.g., "relaxing", "new releases", "upbeat")
-
-    Returns:
-        A dictionary containing recommended tracks based on seed tracks and filtering criteria.
-    """
-    try:
-        # Validate track_ids
-        if not track_ids or not isinstance(track_ids, list) or len(track_ids) == 0:
-            return {
-                "status": "error",
-                "message": "No track IDs provided for recommendations."
-            }
-
-        # Call the batch recommendations endpoint
-        payload = {
-            "track_ids": track_ids,
-            "limit_per_track": limit_per_track,
-            "remove_duplicates": True
-        }
-
-        response = requests.post(f"{FLASK_APP_URL}/api/recommendations/batch", json=payload)
-
-        if response.status_code != 200:
-            error_data = response.json()
-            return {
-                "status": "error",
-                "message": f"Failed to get recommendations: {error_data.get('error', 'Unknown error')}"
-            }
-
-        recommendations = response.json().get("recommendations", [])
-
-        # If filter criteria is provided, include it in the response for LLM processing
-        result = {
-            "recommendations": recommendations,
-            "total_count": len(recommendations)
-        }
-
-        if filter_criteria:
-            result["filter_criteria"] = filter_criteria
-
-        return result
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to get recommendations: {str(e)}"
-        }
 
 @mcp.tool()
 def recommend_tracks(track_ids: Optional[List[str]] = None, filter_criteria: Optional[str] = None, limit_per_track: int = 20, limit_from_favorite: int = 20) -> dict:
@@ -295,82 +203,20 @@ def recommend_tracks(track_ids: Optional[List[str]] = None, filter_criteria: Opt
     Returns:
         A dictionary containing both the seed tracks and recommended tracks
     """
-    # First, check if the user is authenticated
-    auth_check = requests.get(f"{FLASK_APP_URL}/api/auth/status")
-    auth_data = auth_check.json()
-
-    if not auth_data.get("authenticated", False):
-        return {
-            "status": "error",
-            "message": "You need to login to TIDAL first before I can recommend music. Please use the tidal_login() function."
-        }
-
-    # Initialize variables to store our seed tracks and their info
-    seed_track_ids = []
-    seed_tracks_info = []
-
-    # If track_ids are provided, use them directly
-    if track_ids and isinstance(track_ids, list) and len(track_ids) > 0:
-        seed_track_ids = track_ids
-        # Note: We don't have detailed info about these tracks, just IDs
-        # This is fine as the recommendation API only needs IDs
-    else:
-        # If no track_ids provided, get the user's favorite tracks
-        tracks_response = get_favorite_tracks(limit=limit_from_favorite)
-
-        # Check if we successfully retrieved tracks
-        if "status" in tracks_response and tracks_response["status"] == "error":
-            return {
-                "status": "error",
-                "message": f"Unable to get favorite tracks for recommendations: {tracks_response['message']}"
-            }
-
-        # Extract the track data
-        favorite_tracks = tracks_response.get("tracks", [])
-
-        if not favorite_tracks:
-            return {
-                "status": "error",
-                "message": "I couldn't find any favorite tracks in your TIDAL account to use as seeds for recommendations."
-            }
-
-        # Use these as our seed tracks
-        seed_track_ids = [track["id"] for track in favorite_tracks]
-        seed_tracks_info = favorite_tracks
-
-    # Get recommendations based on the seed tracks
-    recommendations_response = _get_tidal_recommendations(
-        track_ids=seed_track_ids,
-        limit_per_track=limit_per_track,
-        filter_criteria=filter_criteria
+    # Pass get_favorite_tracks as a function reference to avoid circular dependencies
+    return recommend_tracks_impl(
+        FLASK_APP_URL,
+        get_favorite_tracks,
+        track_ids,
+        filter_criteria,
+        limit_per_track,
+        limit_from_favorite
     )
 
-    # Check if we successfully retrieved recommendations
-    if "status" in recommendations_response and recommendations_response["status"] == "error":
-        return {
-            "status": "error",
-            "message": f"Unable to get recommendations: {recommendations_response['message']}"
-        }
 
-    # Get the recommendations
-    recommendations = recommendations_response.get("recommendations", [])
-
-    if not recommendations:
-        return {
-            "status": "error",
-            "message": "I couldn't find any recommendations based on the provided tracks. Please try again with different tracks or adjust your filtering criteria."
-        }
-
-    # Return the structured data to process
-    return {
-        "status": "success",
-        "seed_tracks": seed_tracks_info,  # This might be empty if direct track_ids were provided
-        "seed_track_ids": seed_track_ids,
-        "recommendations": recommendations,
-        "filter_criteria": filter_criteria,
-        "seed_count": len(seed_track_ids),
-    }
-
+# =============================================================================
+# PLAYLIST MANAGEMENT TOOLS
+# =============================================================================
 
 @mcp.tool()
 @requires_tidal_auth
@@ -414,45 +260,7 @@ def create_tidal_playlist(title: str, track_ids: list, description: str = "") ->
     Returns:
         A dictionary containing the status of the playlist creation and details about the created playlist
     """
-    # Validate inputs
-    if not title or not title.strip():
-        return {
-            "status": "error",
-            "message": "Playlist title cannot be empty."
-        }
-
-    if not track_ids or not isinstance(track_ids, list) or len(track_ids) == 0:
-        return {
-            "status": "error",
-            "message": "You must provide at least one track ID to add to the playlist."
-        }
-
-    # Create the playlist through the Flask API
-    payload = {
-        "title": title.strip(),
-        "description": description,
-        "track_ids": track_ids
-    }
-
-    result = make_tidal_request("/api/playlists", payload, method="POST")
-
-    if result["status"] != "success":
-        return result
-
-    # Parse the response
-    response_data = result["data"]
-    playlist_data = response_data.get("playlist", {})
-
-    # Get the playlist ID and add TIDAL URL
-    playlist_id = playlist_data.get("id")
-    if playlist_id:
-        playlist_data["playlist_url"] = f"https://tidal.com/playlist/{playlist_id}"
-
-    return {
-        "status": "success",
-        "message": f"Successfully created playlist '{title}' with {len(track_ids)} tracks",
-        "playlist": playlist_data
-    }
+    return create_tidal_playlist_impl(make_tidal_request, title, track_ids, description)
 
 
 @mcp.tool()
@@ -480,17 +288,7 @@ def get_user_playlists() -> TidalResponse:
     Returns:
         A dictionary containing the user's playlists sorted by last updated date
     """
-    result = make_tidal_request("/api/playlists")
-
-    if result["status"] != "success":
-        return result
-
-    playlists = result["data"].get("playlists", [])
-    return {
-        "status": "success",
-        "playlists": playlists,
-        "playlist_count": len(playlists)
-    }
+    return get_user_playlists_impl(make_tidal_request)
 
 
 @mcp.tool()
@@ -524,25 +322,7 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> TidalResponse:
     Returns:
         A dictionary containing the playlist information and all tracks in the playlist
     """
-    # Validate playlist_id
-    if not playlist_id or not playlist_id.strip():
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
-        }
-
-    params = {"limit": limit}
-    result = make_tidal_request(f"/api/playlists/{playlist_id}/tracks", params)
-
-    if result["status"] != "success":
-        return result
-
-    data = result["data"]
-    return {
-        "status": "success",
-        "tracks": data.get("tracks", []),
-        "track_count": data.get("total_tracks", 0)
-    }
+    return get_playlist_tracks_impl(make_tidal_request, playlist_id, limit)
 
 
 @mcp.tool()
@@ -571,19 +351,135 @@ def delete_tidal_playlist(playlist_id: str) -> TidalResponse:
     Returns:
         A dictionary containing the status of the playlist deletion
     """
-    # Validate playlist_id
-    if not playlist_id or not playlist_id.strip():
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
-        }
+    return delete_tidal_playlist_impl(make_tidal_request, playlist_id)
 
-    result = make_tidal_request(f"/api/playlists/{playlist_id}", method="DELETE")
 
-    if result["status"] == "success":
-        return result["data"]
-    else:
-        return result
+@mcp.tool()
+@requires_tidal_auth
+def add_tracks_to_playlist(playlist_id: str, track_ids: list) -> TidalResponse:
+    """
+    Add tracks to an existing TIDAL playlist.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Add these songs to my playlist"
+    - "Add [track] to [playlist name]"
+    - "Put these tracks in my playlist"
+    - Any request to add songs/tracks to an existing playlist
+
+    This function adds tracks to a user's existing TIDAL playlist. The playlist
+    must already exist, and the user must have permission to edit it.
+
+    When processing the results of this tool:
+    1. Confirm how many tracks were added successfully
+    2. Provide clear feedback about the operation
+    3. If any tracks failed to add, explain why
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        track_ids: A list of TIDAL track IDs to add to the playlist (required)
+
+    Returns:
+        A dictionary containing the status of the operation and number of tracks added
+    """
+    return add_tracks_to_playlist_impl(make_tidal_request, playlist_id, track_ids)
+
+
+@mcp.tool()
+@requires_tidal_auth
+def remove_tracks_from_playlist(playlist_id: str, track_ids: Optional[list] = None, indices: Optional[list] = None) -> TidalResponse:
+    """
+    Remove tracks from a TIDAL playlist by track IDs or position indices.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Remove this song from my playlist"
+    - "Delete tracks from [playlist name]"
+    - "Take out these songs from the playlist"
+    - Any request to remove songs/tracks from a playlist
+
+    This function removes specific tracks from a user's TIDAL playlist. You can remove
+    tracks either by their TIDAL IDs or by their position in the playlist (0-based index).
+
+    When processing the results of this tool:
+    1. Confirm how many tracks were removed successfully
+    2. Provide clear feedback about what was removed
+    3. If using indices, remind the user they are 0-based (first track is index 0)
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        track_ids: A list of TIDAL track IDs to remove (optional - use this OR indices)
+        indices: A list of track positions (0-based) to remove (optional - use this OR track_ids)
+
+    Returns:
+        A dictionary containing the status and number of tracks removed
+    """
+    return remove_tracks_from_playlist_impl(make_tidal_request, playlist_id, track_ids, indices)
+
+
+@mcp.tool()
+@requires_tidal_auth
+def update_playlist_metadata(playlist_id: str, title: Optional[str] = None, description: Optional[str] = None) -> TidalResponse:
+    """
+    Update a TIDAL playlist's title and/or description.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Rename my playlist to [new name]"
+    - "Change the playlist description"
+    - "Update playlist [name] with new title/description"
+    - Any request to modify playlist metadata
+
+    This function updates the title and/or description of a user's TIDAL playlist.
+    At least one of title or description must be provided.
+
+    When processing the results of this tool:
+    1. Confirm what was updated (title, description, or both)
+    2. Show the new values
+    3. Provide clear feedback that the changes were saved
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        title: New title for the playlist (optional)
+        description: New description for the playlist (optional)
+
+    Returns:
+        A dictionary containing the status and updated fields
+    """
+    return update_playlist_metadata_impl(make_tidal_request, playlist_id, title, description)
+
+
+@mcp.tool()
+@requires_tidal_auth
+def reorder_playlist_tracks(playlist_id: str, from_index: int, to_index: int) -> TidalResponse:
+    """
+    Move/reorder a track within a TIDAL playlist.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Move track at position X to position Y"
+    - "Reorder my playlist"
+    - "Put song #5 at the beginning"
+    - Any request to change the order of tracks in a playlist
+
+    This function moves a track from one position to another within a playlist.
+    Indices are 0-based (first track is index 0).
+
+    When processing the results of this tool:
+    1. Confirm the track was moved successfully
+    2. Remind the user that indices are 0-based
+    3. Describe the move clearly (e.g., "moved from position 5 to position 2")
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        from_index: Current position of the track (0-based) (required)
+        to_index: New position for the track (0-based) (required)
+
+    Returns:
+        A dictionary containing the status of the move operation
+    """
+    return reorder_playlist_tracks_impl(make_tidal_request, playlist_id, from_index, to_index)
+
+
+# =============================================================================
+# SEARCH TOOLS
+# =============================================================================
 
 @mcp.tool()
 @requires_tidal_auth
@@ -615,38 +511,7 @@ def search_tidal(query: str, search_type: str = "all", limit: int = 20) -> Searc
     Returns:
         A dictionary containing search results organized by content type
     """
-    # Validate inputs
-    validation_error = validate_search_query(query)
-    if validation_error:
-        return validation_error
-
-    if search_type not in VALID_SEARCH_TYPES:
-        return {
-            "status": "error",
-            "message": f"Invalid search type '{search_type}'. Valid types: {', '.join(VALID_SEARCH_TYPES)}"
-        }
-
-    # Make the search request
-    params = {
-        "q": query.strip(),
-        "type": search_type,
-        "limit": limit
-    }
-
-    result = make_tidal_request("/api/search", params)
-
-    if result["status"] != "success":
-        return result
-
-    data = result["data"]
-    return {
-        "status": "success",
-        "query": query,
-        "search_type": search_type,
-        "limit": limit,
-        "results": data.get("results", {}),
-        "summary": data.get("summary", {})
-    }
+    return search_tidal_impl(make_tidal_request, query, search_type, limit)
 
 
 @mcp.tool()
@@ -670,14 +535,7 @@ def search_tracks(query: str, limit: int = 20) -> SearchResults:
     Returns:
         A dictionary containing track search results with detailed information
     """
-    validation_error = validate_search_query(query)
-    if validation_error:
-        return validation_error
-
-    params = {"q": query.strip(), "limit": limit}
-    result = make_tidal_request("/api/search/tracks", params)
-
-    return format_search_results(query, "tracks", result, "tracks")
+    return search_tracks_impl(make_tidal_request, query, limit)
 
 
 @mcp.tool()
@@ -699,14 +557,7 @@ def search_albums(query: str, limit: int = 20) -> SearchResults:
     Returns:
         A dictionary containing album search results with detailed information
     """
-    validation_error = validate_search_query(query)
-    if validation_error:
-        return validation_error
-
-    params = {"q": query.strip(), "limit": limit}
-    result = make_tidal_request("/api/search/albums", params)
-
-    return format_search_results(query, "albums", result, "albums")
+    return search_albums_impl(make_tidal_request, query, limit)
 
 
 @mcp.tool()
@@ -728,14 +579,7 @@ def search_artists(query: str, limit: int = 20) -> SearchResults:
     Returns:
         A dictionary containing artist search results
     """
-    validation_error = validate_search_query(query)
-    if validation_error:
-        return validation_error
-
-    params = {"q": query.strip(), "limit": limit}
-    result = make_tidal_request("/api/search/artists", params)
-
-    return format_search_results(query, "artists", result, "artists")
+    return search_artists_impl(make_tidal_request, query, limit)
 
 
 @mcp.tool()
@@ -757,234 +601,4 @@ def search_playlists(query: str, limit: int = 20) -> SearchResults:
     Returns:
         A dictionary containing playlist search results
     """
-    validation_error = validate_search_query(query)
-    if validation_error:
-        return validation_error
-
-    params = {"q": query.strip(), "limit": limit}
-    result = make_tidal_request("/api/search/playlists", params)
-
-    return format_search_results(query, "playlists", result, "playlists")
-
-
-@mcp.tool()
-@requires_tidal_auth
-def add_tracks_to_playlist(playlist_id: str, track_ids: list) -> TidalResponse:
-    """
-    Add tracks to an existing TIDAL playlist.
-
-    USE THIS TOOL WHENEVER A USER ASKS FOR:
-    - "Add these songs to my playlist"
-    - "Add [track] to [playlist name]"
-    - "Put these tracks in my playlist"
-    - Any request to add songs/tracks to an existing playlist
-
-    This function adds tracks to a user's existing TIDAL playlist. The playlist
-    must already exist, and the user must have permission to edit it.
-
-    When processing the results of this tool:
-    1. Confirm how many tracks were added successfully
-    2. Provide clear feedback about the operation
-    3. If any tracks failed to add, explain why
-
-    Args:
-        playlist_id: The TIDAL ID of the playlist (required)
-        track_ids: A list of TIDAL track IDs to add to the playlist (required)
-
-    Returns:
-        A dictionary containing the status of the operation and number of tracks added
-    """
-    # Validate inputs
-    if not playlist_id:
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
-        }
-
-    if not track_ids or not isinstance(track_ids, list):
-        return {
-            "status": "error",
-            "message": "track_ids must be a non-empty list of track IDs."
-        }
-
-    result = make_tidal_request(
-        f"/api/playlists/{playlist_id}/tracks",
-        params={"track_ids": track_ids},
-        method="POST"
-    )
-
-    return result
-
-
-@mcp.tool()
-@requires_tidal_auth
-def remove_tracks_from_playlist(playlist_id: str, track_ids: Optional[list] = None, indices: Optional[list] = None) -> TidalResponse:
-    """
-    Remove tracks from a TIDAL playlist by track IDs or position indices.
-
-    USE THIS TOOL WHENEVER A USER ASKS FOR:
-    - "Remove this song from my playlist"
-    - "Delete tracks from [playlist name]"
-    - "Take out these songs from the playlist"
-    - Any request to remove songs/tracks from a playlist
-
-    This function removes specific tracks from a user's TIDAL playlist. You can remove
-    tracks either by their TIDAL IDs or by their position in the playlist (0-based index).
-
-    When processing the results of this tool:
-    1. Confirm how many tracks were removed successfully
-    2. Provide clear feedback about what was removed
-    3. If using indices, remind the user they are 0-based (first track is index 0)
-
-    Args:
-        playlist_id: The TIDAL ID of the playlist (required)
-        track_ids: A list of TIDAL track IDs to remove (optional - use this OR indices)
-        indices: A list of track positions (0-based) to remove (optional - use this OR track_ids)
-
-    Returns:
-        A dictionary containing the status and number of tracks removed
-    """
-    # Validate inputs
-    if not playlist_id:
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
-        }
-
-    if not track_ids and not indices:
-        return {
-            "status": "error",
-            "message": "Must provide either track_ids or indices to remove tracks."
-        }
-
-    if track_ids and indices:
-        return {
-            "status": "error",
-            "message": "Provide either track_ids OR indices, not both."
-        }
-
-    params = {}
-    if track_ids:
-        params["track_ids"] = track_ids
-    if indices:
-        params["indices"] = indices
-
-    result = make_tidal_request(
-        f"/api/playlists/{playlist_id}/tracks",
-        params=params,
-        method="DELETE"
-    )
-
-    return result
-
-
-@mcp.tool()
-@requires_tidal_auth
-def update_playlist_metadata(playlist_id: str, title: Optional[str] = None, description: Optional[str] = None) -> TidalResponse:
-    """
-    Update a TIDAL playlist's title and/or description.
-
-    USE THIS TOOL WHENEVER A USER ASKS FOR:
-    - "Rename my playlist to [new name]"
-    - "Change the playlist description"
-    - "Update playlist [name] with new title/description"
-    - Any request to modify playlist metadata
-
-    This function updates the title and/or description of a user's TIDAL playlist.
-    At least one of title or description must be provided.
-
-    When processing the results of this tool:
-    1. Confirm what was updated (title, description, or both)
-    2. Show the new values
-    3. Provide clear feedback that the changes were saved
-
-    Args:
-        playlist_id: The TIDAL ID of the playlist (required)
-        title: New title for the playlist (optional)
-        description: New description for the playlist (optional)
-
-    Returns:
-        A dictionary containing the status and updated fields
-    """
-    # Validate inputs
-    if not playlist_id:
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
-        }
-
-    if not title and not description:
-        return {
-            "status": "error",
-            "message": "Must provide at least a new title or description."
-        }
-
-    params = {}
-    if title:
-        params["title"] = title
-    if description:
-        params["description"] = description
-
-    result = make_tidal_request(
-        f"/api/playlists/{playlist_id}",
-        params=params,
-        method="PATCH"
-    )
-
-    return result
-
-
-@mcp.tool()
-@requires_tidal_auth
-def reorder_playlist_tracks(playlist_id: str, from_index: int, to_index: int) -> TidalResponse:
-    """
-    Move/reorder a track within a TIDAL playlist.
-
-    USE THIS TOOL WHENEVER A USER ASKS FOR:
-    - "Move track at position X to position Y"
-    - "Reorder my playlist"
-    - "Put song #5 at the beginning"
-    - Any request to change the order of tracks in a playlist
-
-    This function moves a track from one position to another within a playlist.
-    Indices are 0-based (first track is index 0).
-
-    When processing the results of this tool:
-    1. Confirm the track was moved successfully
-    2. Remind the user that indices are 0-based
-    3. Describe the move clearly (e.g., "moved from position 5 to position 2")
-
-    Args:
-        playlist_id: The TIDAL ID of the playlist (required)
-        from_index: Current position of the track (0-based) (required)
-        to_index: New position for the track (0-based) (required)
-
-    Returns:
-        A dictionary containing the status of the move operation
-    """
-    # Validate inputs
-    if not playlist_id:
-        return {
-            "status": "error",
-            "message": "A playlist ID is required. You can get playlist IDs using get_user_playlists()."
-        }
-
-    if from_index is None or to_index is None:
-        return {
-            "status": "error",
-            "message": "Both from_index and to_index are required."
-        }
-
-    if from_index < 0 or to_index < 0:
-        return {
-            "status": "error",
-            "message": "Indices must be non-negative (0-based indexing)."
-        }
-
-    result = make_tidal_request(
-        f"/api/playlists/{playlist_id}/tracks/move",
-        params={"from_index": from_index, "to_index": to_index},
-        method="POST"
-    )
-
-    return result
+    return search_playlists_impl(make_tidal_request, query, limit)
