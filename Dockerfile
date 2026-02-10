@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# MCP server metadata
+LABEL io.modelcontextprotocol.server.name="io.github.ibeal/tidal-mcp"
+
 # Install uv for Python package management
 RUN pip install --no-cache-dir uv
 
