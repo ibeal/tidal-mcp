@@ -1,4 +1,4 @@
-# 🎵 TIDAL MCP: My Custom Picks (Community Maintained Fork)
+# 🎵 TIDAL MCP (Community Maintained Fork)
 
 > **📢 Active Maintenance Notice**: This is an actively maintained community fork of [yuhuacheng/tidal-mcp](https://github.com/yuhuacheng/tidal-mcp).
 > The original repository appears unmaintained since May 2025. **Contributions, issues, and PRs are welcome here!**
@@ -18,11 +18,7 @@ With TIDAL MCP, you can ask for things like:
 >
 > _"Find me tracks like those in this playlist, but slower and more acoustic."_
 
-The LLM filters and curates results using your input, finds similar tracks via TIDAL’s API, and builds new playlists directly in your account.
-
-<a href="https://glama.ai/mcp/servers/@yuhuacheng/tidal-mcp">
-  <img width="400" height="200" src="https://glama.ai/mcp/servers/@yuhuacheng/tidal-mcp/badge" alt="TIDAL: My Custom Picks MCP server" />
-</a>
+The LLM filters and curates results using your input, finds similar tracks via TIDAL's API, and builds new playlists directly in your account.
 
 ## 🆕 What's New in This Fork
 
