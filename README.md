@@ -1,4 +1,12 @@
-# TIDAL MCP: My Custom Picks 🌟🎧
+# 🎵 TIDAL MCP: My Custom Picks (Community Maintained Fork)
+
+> **📢 Active Maintenance Notice**: This is an actively maintained community fork of [yuhuacheng/tidal-mcp](https://github.com/yuhuacheng/tidal-mcp).
+> The original repository appears unmaintained since May 2025. **Contributions, issues, and PRs are welcome here!**
+
+[![Active Development](https://img.shields.io/badge/status-actively%20maintained-brightgreen)](https://github.com/ibeal/tidal-mcp)
+[![Docker Support](https://img.shields.io/badge/docker-supported-blue)](https://github.com/ibeal/tidal-mcp#option-1-docker-recommended)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/downloads/)
+[![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)](https://modelcontextprotocol.io)
 
 ![Demo: Music Recommendations in Action](./assets/tidal_mcp_demo.gif)
 
@@ -16,10 +24,28 @@ The LLM filters and curates results using your input, finds similar tracks via T
   <img width="400" height="200" src="https://glama.ai/mcp/servers/@yuhuacheng/tidal-mcp/badge" alt="TIDAL: My Custom Picks MCP server" />
 </a>
 
+## 🆕 What's New in This Fork
+
+This community fork includes significant improvements over the original:
+
+- ✅ **Docker Support**: Full Docker and docker-compose setup for easy deployment
+- ✅ **Search Functionality**: Search for tracks, albums, artists, and playlists across TIDAL
+- ✅ **Pagination**: Fetch all tracks from large playlists (no more 50-track limit!)
+- ✅ **Complete Playlist Editing**: Add, remove, reorder tracks, and update metadata
+- ✅ **Refactored Codebase**: ~60% smaller files with better organization and maintainability
+- ✅ **DRY Pagination Helper**: Reusable pagination utilities across all endpoints
+
+**See the full changelog and contribute at: https://github.com/ibeal/tidal-mcp**
+
 ## Features
 
-- 🌟 **Music Recommendations**: Get personalized track recommendations based on your listening history **plus your custom criteria**.
-- ၊၊||၊ **Playlist Management**: Create, view, and manage your TIDAL playlists
+- 🌟 **Music Recommendations**: Get personalized track recommendations based on your listening history **plus your custom criteria**
+- 🎵 **Full Playlist Management**: Create, view, edit, and delete playlists with complete control
+- 🔍 **Advanced Search**: Search across tracks, albums, artists, and playlists
+- 📄 **Smart Pagination**: Automatically fetch all tracks from playlists of any size
+- 🎛️ **Playlist Editing**: Add, remove, reorder tracks, and update metadata
+- 🐳 **Docker Ready**: Easy deployment with Docker and docker-compose support
+- 🔐 **OAuth Authentication**: Secure browser-based TIDAL login flow
 
 ## Quick Start
 
@@ -35,7 +61,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yuhuacheng/tidal-mcp.git
+   git clone https://github.com/ibeal/tidal-mcp.git
    cd tidal-mcp
    ```
 
@@ -62,7 +88,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/yuhuacheng/tidal-mcp.git
+   git clone https://github.com/ibeal/tidal-mcp.git
    cd tidal-mcp
    ```
 
@@ -264,8 +290,12 @@ The TIDAL MCP integration provides the following tools:
 
 - `create_tidal_playlist`: Create a new playlist in your TIDAL account
 - `get_user_playlists`: List all your playlists on TIDAL
-- `get_playlist_tracks`: Retrieve all tracks from a specific playlist
+- `get_playlist_tracks`: Retrieve all tracks from a specific playlist (with automatic pagination)
 - `delete_tidal_playlist`: Delete a playlist from your TIDAL account
+- `add_tracks_to_playlist`: Add tracks to an existing playlist
+- `remove_tracks_from_playlist`: Remove tracks by ID or position index
+- `update_playlist_metadata`: Update playlist title and/or description
+- `reorder_playlist_tracks`: Move tracks to different positions within a playlist
 
 ### Search & Discovery
 
@@ -279,7 +309,24 @@ The TIDAL MCP integration provides the following tools:
 
 [MIT License](LICENSE)
 
+## Contributing
+
+This is an actively maintained community fork. Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
 ## Acknowledgements
 
+**Original Project:**
+- [yuhuacheng/tidal-mcp](https://github.com/yuhuacheng/tidal-mcp) - Original TIDAL MCP implementation
+
+**Contributors:**
+- [ra100](https://github.com/ra100) - Search functionality features
+
+**Libraries & Frameworks:**
 - [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/python-sdk)
 - [TIDAL Python API](https://github.com/tamland/python-tidal)
