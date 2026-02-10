@@ -1,0 +1,12 @@
+# CODEOWNERS file for tidal-mcp
+# This file defines who is responsible for reviewing and approving changes
+
+# Default owner for everything in the repo
+* @ibeal
+
+# Specific ownership for core components
+/mcp_server/ @ibeal
+/tidal_api/ @ibeal
+/docker-compose.yml @ibeal
+/Dockerfile @ibeal
+/pyproject.toml @ibeal
