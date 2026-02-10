@@ -8,6 +8,38 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
+env/
+
+# MCP Registry authentication tokens (IMPORTANT - contains secrets!)
+.mcpregistry_github_token
+.mcpregistry_registry_token
+
+# TIDAL session/authentication files
+tidal-session-oauth.json
+*.oauth.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes/data
+docker-data/
+
+# Logs
+*.log
 
 # Others
 play.ipynb
