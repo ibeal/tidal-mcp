@@ -80,9 +80,9 @@ jobs:
 
       - name: Publish to MCP Registry
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MCP_PUBLISHER_TOKEN }}
         run: |
-          # Authenticate with GitHub
+          # Authenticate with GitHub (using PAT with user:read scope)
           mcp-publisher login github -token "$GITHUB_TOKEN"
 
           # Publish to MCP registry
