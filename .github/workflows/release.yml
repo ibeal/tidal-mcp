@@ -73,8 +73,11 @@ jobs:
 
       - name: Install mcp-publisher
         run: |
-          # Install mcp-publisher CLI
-          brew install mcp-publisher
+          # Download mcp-publisher pre-built binary for Linux
+          curl -L -o mcp-publisher https://github.com/modelcontextprotocol/mcp-publisher/releases/latest/download/mcp-publisher-linux-amd64
+          chmod +x mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher --version
 
       - name: Publish to MCP Registry
         env:
