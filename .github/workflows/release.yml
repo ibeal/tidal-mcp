@@ -83,7 +83,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Authenticate with GitHub
-          echo "$GITHUB_TOKEN" | mcp-publisher login github --token-stdin
+          mcp-publisher login github -token "$GITHUB_TOKEN"
 
           # Publish to MCP registry
           mcp-publisher publish
