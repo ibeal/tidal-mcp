@@ -31,6 +31,9 @@ tidal-session-oauth.json
 *.swo
 *~
 
+# Claude Code machine-specific config
+/.claude/
+
 # OS files
 .DS_Store
 Thumbs.db
