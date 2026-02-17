@@ -13,6 +13,7 @@ COPY pyproject.toml uv.lock ./
 COPY mcp_server/ ./mcp_server/
 COPY tidal_api/ ./tidal_api/
 COPY auth_cli.py ./
+COPY start_mcp.py ./
 
 # Create virtual environment and install dependencies using uv sync
 # This respects the uv.lock file and ensures all dependencies are properly installed
@@ -25,4 +26,4 @@ EXPOSE 5050
 ENV TIDAL_MCP_PORT=5050
 
 # Activate venv and run the MCP server
-CMD [".venv/bin/mcp", "run", "mcp_server/server.py"]
+CMD [".venv/bin/python", "start_mcp.py"]
