@@ -263,7 +263,7 @@ def move_track(
         if not playlist:
             return {"error": f"Playlist with ID {playlist_id} not found"}, 404
 
-        playlist.move(from_index, to_index)
+        playlist.move_by_index(from_index, to_index)
 
         return {
             "status": "success",
