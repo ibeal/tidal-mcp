@@ -226,10 +226,11 @@ def search_albums_only(session: BrowserSession, query: str, limit: int = 50, log
 
         limit = bound_limit(limit)
         results = session.search(query, models=[tidalapi.Album], limit=limit)
+        albums = results.get('albums') if isinstance(results, dict) else getattr(results, 'albums', None)
 
-        if results and results.albums:
+        if albums:
             formatted_results = []
-            for album in results.albums:
+            for album in albums:
                 album_data = {
                     "id": album.id,
                     "title": album.name,
@@ -277,10 +278,11 @@ def search_artists_only(session: BrowserSession, query: str, limit: int = 50, lo
 
         limit = bound_limit(limit)
         results = session.search(query, models=[tidalapi.Artist], limit=limit)
+        artists = results.get('artists') if isinstance(results, dict) else getattr(results, 'artists', None)
 
-        if results and results.artists:
+        if artists:
             formatted_results = []
-            for artist in results.artists:
+            for artist in artists:
                 artist_data = {
                     "id": artist.id,
                     "name": artist.name,
@@ -323,10 +325,11 @@ def search_playlists_only(session: BrowserSession, query: str, limit: int = 50, 
 
         limit = bound_limit(limit)
         results = session.search(query, models=[tidalapi.Playlist], limit=limit)
+        playlists = results.get('playlists') if isinstance(results, dict) else getattr(results, 'playlists', None)
 
-        if results and results.playlists:
+        if playlists:
             formatted_results = []
-            for playlist in results.playlists:
+            for playlist in playlists:
                 playlist_data = {
                     "id": playlist.id,
                     "title": playlist.name,
