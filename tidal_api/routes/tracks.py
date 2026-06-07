@@ -1,5 +1,6 @@
 """Track and recommendation route implementation logic."""
 import concurrent.futures
+from tidalapi.user import ItemOrder, OrderDirection
 from tidal_api.browser_session import BrowserSession
 from tidal_api.utils import format_track_data, bound_limit, fetch_all_items
 
@@ -9,22 +10,25 @@ def get_user_tracks(session: BrowserSession, limit: int = 10) -> dict:
     try:
         favorites = session.user.favorites
 
-        # Use pagination helper to fetch tracks beyond the 50-item limit
-        def fetch_page(page_limit, offset):
+        # Use pagination helper to fetch tracks beyond the 50-item limit.
+        # fetch_all_items calls this as fetch_func(limit=..., offset=...), so the
+        # parameter must be named `limit` (not `page_limit`) or every call raises
+        # TypeError and favorites silently returns nothing.
+        def fetch_page(limit, offset):
             try:
                 return list(favorites.tracks(
-                    limit=page_limit,
+                    limit=limit,
                     offset=offset,
-                    order="DATE",
-                    order_direction="DESC"
+                    order=ItemOrder.Date,
+                    order_direction=OrderDirection.Descending
                 ))
             except TypeError:
                 # If offset isn't supported, try without it
                 if offset == 0:
                     return list(favorites.tracks(
-                        limit=page_limit,
-                        order="DATE",
-                        order_direction="DESC"
+                        limit=limit,
+                        order=ItemOrder.Date,
+                        order_direction=OrderDirection.Descending
                     ))
                 else:
                     return []
