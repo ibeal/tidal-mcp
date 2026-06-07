@@ -9,6 +9,7 @@ from tidal_api.browser_session import BrowserSession
 
 # Import route implementation functions
 from tidal_api.routes.auth import handle_login, check_auth_status
+from tidal_api.routes.mixes import get_user_mixes, get_mix_tracks
 from tidal_api.routes.tracks import (
     get_user_tracks,
     get_single_track_recommendations,
@@ -387,6 +388,27 @@ def search_playlists(session: BrowserSession):
     limit = request.args.get('limit', default=50, type=int)
 
     result, status_code = search_playlists_only(session, query, limit, logger=app.logger)
+    return jsonify(result), status_code
+
+
+# =============================================================================
+# MIXES ROUTES
+# =============================================================================
+
+@app.route('/api/mixes', methods=['GET'])
+@requires_tidal_auth
+def get_mixes(session: BrowserSession):
+    """Get the user's TIDAL algorithmic mixes (My Daily Discovery, New Arrivals, etc.)."""
+    result, status_code = get_user_mixes(session)
+    return jsonify(result), status_code
+
+
+@app.route('/api/mixes/<mix_id>/tracks', methods=['GET'])
+@requires_tidal_auth
+def get_mix_tracks_route(mix_id: str, session: BrowserSession):
+    """Get tracks from a specific TIDAL mix."""
+    limit = request.args.get('limit', default=100, type=int)
+    result, status_code = get_mix_tracks(session, mix_id, limit)
     return jsonify(result), status_code
 
 
