@@ -1,6 +1,6 @@
 """TIDAL algorithmic mixes route implementation logic."""
 from tidal_api.browser_session import BrowserSession
-from tidal_api.utils import format_track_data
+from tidal_api.utils import format_track_data, bound_limit
 
 
 def get_user_mixes(session: BrowserSession) -> tuple:
@@ -11,9 +11,8 @@ def get_user_mixes(session: BrowserSession) -> tuple:
         for mix in mixes:
             mix_list.append({
                 "id": str(mix.id),
-                "title": mix.title if hasattr(mix, 'title') else str(mix.id),
+                "title": getattr(mix, 'title', '') or str(mix.id),
                 "sub_title": getattr(mix, 'sub_title', ''),
-                "track_count": getattr(mix, 'number_of_tracks', 0) or 0,
             })
         return {"mixes": mix_list}, 200
     except Exception as e:
@@ -24,7 +23,7 @@ def get_user_mixes(session: BrowserSession) -> tuple:
 def get_mix_tracks(session: BrowserSession, mix_id: str, limit: int = 100) -> tuple:
     """Get tracks from a specific TIDAL mix."""
     try:
-        limit = max(1, min(500, limit))
+        limit = bound_limit(limit, 500)
         mix = session.mix(mix_id)
         all_tracks = mix.items()
         track_list = [format_track_data(track) for track in all_tracks[:limit]]
