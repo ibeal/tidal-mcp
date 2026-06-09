@@ -11,6 +11,11 @@ wheels/
 venv/
 env/
 
+# pixi (local Python environment management — intentionally not committed)
+.pixi/
+pixi.lock
+pixi.toml
+
 # MCP Registry authentication tokens (IMPORTANT - contains secrets!)
 .mcpregistry_github_token
 .mcpregistry_registry_token
@@ -46,3 +51,6 @@ docker-data/
 
 # Others
 play.ipynb
+# pixi environments
+.pixi/*
+!.pixi/config.toml
