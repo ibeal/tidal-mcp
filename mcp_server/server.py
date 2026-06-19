@@ -29,6 +29,11 @@ from mcp_server.tools.search import (
     search_artists as search_artists_impl,
     search_playlists as search_playlists_impl
 )
+from mcp_server.tools.mixes import (
+    get_user_mixes as get_user_mixes_impl,
+    get_mix_tracks as get_mix_tracks_impl
+)
+from mcp_server.tools.history import get_listening_history as get_listening_history_impl
 
 # Print the port being used for debugging
 print(f"TIDAL MCP starting on port {FLASK_PORT}")
@@ -476,6 +481,78 @@ def reorder_playlist_tracks(playlist_id: str, from_index: int, to_index: int) ->
         A dictionary containing the status of the move operation
     """
     return reorder_playlist_tracks_impl(make_tidal_request, playlist_id, from_index, to_index)
+
+
+# =============================================================================
+# MIXES & LISTENING HISTORY TOOLS
+# =============================================================================
+
+@mcp.tool()
+@requires_tidal_auth
+def get_user_mixes() -> TidalResponse:
+    """
+    Fetches the user's TIDAL algorithmic mixes (My Daily Discovery, New Arrivals, etc.).
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Show me my TIDAL mixes"
+    - "What are my daily mixes / My Mix?"
+    - "List my algorithmic mixes"
+    - Any request to view their TIDAL-generated mixes
+
+    Each mix includes its id, title, sub_title, and track_count. Use get_mix_tracks()
+    with a mix id to retrieve the tracks within a mix.
+
+    Returns:
+        A dictionary containing the user's mixes and a mix_count.
+    """
+    return get_user_mixes_impl(make_tidal_request)
+
+
+@mcp.tool()
+@requires_tidal_auth
+def get_mix_tracks(mix_id: str, limit: int = 100) -> TidalResponse:
+    """
+    Retrieves the tracks within a specific TIDAL mix.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "What's in my [mix name]?"
+    - "Show me the tracks in this mix"
+    - Any request to see the contents of a mix (including the listening-history
+      mixes returned by get_listening_history())
+
+    Args:
+        mix_id: The TIDAL mix ID (from get_user_mixes() or get_listening_history())
+        limit: Maximum number of tracks to retrieve (default: 100)
+
+    Returns:
+        A dictionary containing the mix's tracks and a track_count.
+    """
+    return get_mix_tracks_impl(make_tidal_request, mix_id, limit)
+
+
+@mcp.tool()
+@requires_tidal_auth
+def get_listening_history() -> TidalResponse:
+    """
+    Retrieves the user's TIDAL listening-history mixes (HISTORY_* surfaces).
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "What have I been listening to?"
+    - "Show me my listening history"
+    - "What do I play the most / most recently?"
+    - Any request that depends on play frequency or recency
+
+    TIDAL exposes listening history as mixes split into tiers — "alltime", "yearly",
+    and "monthly" (the monthly mixes are ordered newest-first via month_index, where
+    0 is the most recent month). This is the native play-frequency/recency signal:
+    fetch each mix's tracks with get_mix_tracks(mix_id) and combine tier membership +
+    recency to reconstruct a "played a lot / played recently" ranking.
+
+    Returns:
+        A dictionary containing the history_mixes (id, tier, type, month_index, title)
+        and a history_mix_count. May include a warning if history is unavailable.
+    """
+    return get_listening_history_impl(make_tidal_request)
 
 
 # =============================================================================

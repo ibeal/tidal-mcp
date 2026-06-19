@@ -13,6 +13,7 @@ def get_user_mixes(session: BrowserSession) -> tuple:
                 "id": str(mix.id),
                 "title": getattr(mix, 'title', '') or str(mix.id),
                 "sub_title": getattr(mix, 'sub_title', ''),
+                "track_count": getattr(mix, 'number_of_tracks', 0) or 0,
             })
         return {"mixes": mix_list}, 200
     except Exception as e:

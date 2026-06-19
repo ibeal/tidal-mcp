@@ -10,6 +10,7 @@ from tidal_api.browser_session import BrowserSession
 # Import route implementation functions
 from tidal_api.routes.auth import handle_login, check_auth_status
 from tidal_api.routes.mixes import get_user_mixes, get_mix_tracks
+from tidal_api.routes.history import get_listening_history
 from tidal_api.routes.tracks import (
     get_user_tracks,
     get_single_track_recommendations,
@@ -409,6 +410,18 @@ def get_mix_tracks_route(mix_id: str, session: BrowserSession):
     """Get tracks from a specific TIDAL mix."""
     limit = request.args.get('limit', default=100, type=int)
     result, status_code = get_mix_tracks(session, mix_id, limit)
+    return jsonify(result), status_code
+
+
+@app.route('/api/history', methods=['GET'])
+@requires_tidal_auth
+def get_history(session: BrowserSession):
+    """Get the user's listening-history mixes (HISTORY_* surfaces from the home feed).
+
+    Native play-frequency/recency signal. Fetch each mix's tracks via
+    /api/mixes/<id>/tracks and combine tier + recency for a frecency score.
+    """
+    result, status_code = get_listening_history(session)
     return jsonify(result), status_code
 
 
