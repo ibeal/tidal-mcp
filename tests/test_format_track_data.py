@@ -5,6 +5,8 @@ Covers:
 - Regression: original fields are still present and correct
 - New metadata fields: artists, track_number, disc_number, explicit,
   popularity, audio_quality, audio_modes, isrc, version, release_date
+- Relational / artwork fields: cover_url, album_id, artist_id, artist_ids
+- Provenance fields: date_added, copyright
 - Audio analysis fields (bpm, key, key_scale, peak, replay_gain) are
   only included when TIDAL provides non-zero/non-None values
 - source_track_id passthrough
@@ -21,10 +23,28 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from tidal_api.utils import format_track_data
 
 
+def _make_album(**kwargs):
+    """Build a mock Album whose .image(size) returns a resources.tidal.com URL."""
+    cover = kwargs.pop('cover', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')
+    image_url = kwargs.pop(
+        'image_url',
+        'https://resources.tidal.com/images/aaaaaaaa/bbbb/cccc/dddd/eeeeeeeeeeee/640x640.jpg',
+    )
+    return SimpleNamespace(
+        name=kwargs.pop('name', 'Test Album'),
+        id=kwargs.pop('id', 200),
+        cover=cover,
+        image=lambda size, _u=image_url: _u,
+    )
+
+
 def _make_track(**kwargs):
     """Build a minimal mock Track object with sensible defaults."""
-    artist = SimpleNamespace(name=kwargs.pop('artist_name', 'Test Artist'))
-    album = SimpleNamespace(name=kwargs.pop('album_name', 'Test Album'))
+    artist = SimpleNamespace(
+        name=kwargs.pop('artist_name', 'Test Artist'),
+        id=kwargs.pop('artist_id', 100),
+    )
+    album = kwargs.pop('album', None) or _make_album(name=kwargs.pop('album_name', 'Test Album'))
 
     defaults = dict(
         id=123,
@@ -40,8 +60,11 @@ def _make_track(**kwargs):
         audio_quality='LOSSLESS',
         audio_modes=['STEREO'],
         isrc='USABC1234567',
+        copyright=None,
         version=None,
         tidal_release_date=None,
+        # Date the user saved the track (favourites/collection context only)
+        user_date_added=None,
         # Audio analysis — default to "not set"
         bpm=0,
         key=None,
@@ -169,6 +192,94 @@ class TestNewMetadataFields:
 
 
 # ---------------------------------------------------------------------------
+# Relational / artwork fields
+# ---------------------------------------------------------------------------
+
+class TestRelationalAndArtworkFields:
+    def test_cover_url_from_album_image(self):
+        album = _make_album(image_url='https://resources.tidal.com/images/x/640x640.jpg')
+        track = _make_track(album=album)
+        assert format_track_data(track)['cover_url'] == 'https://resources.tidal.com/images/x/640x640.jpg'
+
+    def test_cover_url_none_when_album_has_no_cover(self):
+        album = _make_album(cover=None)
+        track = _make_track(album=album)
+        assert format_track_data(track)['cover_url'] is None
+
+    def test_cover_url_none_when_image_raises(self):
+        # tidalapi raises if the cover UUID is unusable — must be swallowed, not propagated.
+        def _boom(size):
+            raise ValueError('bad cover')
+        album = SimpleNamespace(name='Album', id=200, cover='uuid', image=_boom)
+        track = _make_track(album=album)
+        assert format_track_data(track)['cover_url'] is None
+
+    def test_album_id_stringified(self):
+        album = _make_album(id=49464968)
+        track = _make_track(album=album)
+        assert format_track_data(track)['album_id'] == '49464968'
+
+    def test_album_id_none_when_missing(self):
+        track = _make_track()
+        track.album = SimpleNamespace(name='Album')  # no id
+        assert format_track_data(track)['album_id'] is None
+
+    def test_artist_id_stringified(self):
+        track = _make_track(artist_id=3996865)
+        assert format_track_data(track)['artist_id'] == '3996865'
+
+    def test_artist_id_none_when_missing(self):
+        track = _make_track()
+        track.artist = SimpleNamespace(name='Artist')  # no id
+        assert format_track_data(track)['artist_id'] is None
+
+    def test_artist_ids_list_stringified(self):
+        a1 = SimpleNamespace(name='Artist A', id=1)
+        a2 = SimpleNamespace(name='Artist B', id=2)
+        track = _make_track(artists=[a1, a2])
+        assert format_track_data(track)['artist_ids'] == ['1', '2']
+
+    def test_artist_ids_skip_entries_without_id(self):
+        a1 = SimpleNamespace(name='Artist A', id=1)
+        a2 = SimpleNamespace(name='Artist B')  # no id
+        track = _make_track(artists=[a1, a2])
+        assert format_track_data(track)['artist_ids'] == ['1']
+
+    def test_artist_ids_empty_when_none(self):
+        track = _make_track()
+        track.artists = None
+        assert format_track_data(track)['artist_ids'] == []
+
+
+# ---------------------------------------------------------------------------
+# Provenance fields: date_added, copyright
+# ---------------------------------------------------------------------------
+
+class TestProvenanceFields:
+    def test_date_added_from_user_date_added(self):
+        dt = datetime(2023, 5, 2, tzinfo=timezone.utc)
+        track = _make_track(user_date_added=dt)
+        assert format_track_data(track)['date_added'] == dt.isoformat()
+
+    def test_date_added_falls_back_to_date_added(self):
+        dt = datetime(2022, 1, 9, tzinfo=timezone.utc)
+        track = _make_track(user_date_added=None, date_added=dt)
+        assert format_track_data(track)['date_added'] == dt.isoformat()
+
+    def test_date_added_none_when_absent(self):
+        track = _make_track(user_date_added=None)
+        assert format_track_data(track)['date_added'] is None
+
+    def test_copyright_present(self):
+        track = _make_track(copyright='℗ 2023 Test Records')
+        assert format_track_data(track)['copyright'] == '℗ 2023 Test Records'
+
+    def test_copyright_none(self):
+        track = _make_track(copyright=None)
+        assert format_track_data(track)['copyright'] is None
+
+
+# ---------------------------------------------------------------------------
 # Audio analysis fields — conditional on TIDAL having data
 # ---------------------------------------------------------------------------
 
@@ -238,6 +349,12 @@ class TestMissingAttributes:
         assert result['title'] == 'Track'
         # Optional fields default gracefully
         assert result['artists'] == []
+        assert result['artist_id'] is None
+        assert result['artist_ids'] == []
+        assert result['album_id'] is None
+        assert result['cover_url'] is None
+        assert result['copyright'] is None
+        assert result['date_added'] is None
         assert result['explicit'] is False
         assert result['release_date'] is None
         assert 'bpm' not in result

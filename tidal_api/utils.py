@@ -10,13 +10,33 @@ def format_track_data(track, source_track_id=None):
         Dictionary with standardized track information
     """
     release_date = getattr(track, 'tidal_release_date', None)
+    # When a track comes from a favourites/collection listing, tidalapi populates
+    # user_date_added/date_added from the item's `created` field (the date the user
+    # saved it). It's None for tracks fetched outside a collection context.
+    date_added = getattr(track, 'user_date_added', None) or getattr(track, 'date_added', None)
+
+    album = getattr(track, 'album', None)
+
+    # Album cover art. tidalapi's Album.image(size) builds a resources.tidal.com
+    # URL from the album's cover UUID (valid sizes: 80/160/320/640/1280/origin).
+    cover_url = None
+    try:
+        if album is not None and getattr(album, 'cover', None):
+            cover_url = album.image(640)
+    except Exception:
+        cover_url = None
 
     track_data = {
         "id": track.id,
         "title": track.name,
         "artist": track.artist.name if hasattr(track.artist, 'name') else "Unknown",
         "artists": [a.name for a in track.artists] if getattr(track, 'artists', None) else [],
-        "album": track.album.name if hasattr(track.album, 'name') else "Unknown",
+        # IDs let us build artist/album-graph features and re-fetch art locally later.
+        "artist_id": str(track.artist.id) if getattr(track.artist, 'id', None) else None,
+        "artist_ids": [str(a.id) for a in track.artists if getattr(a, 'id', None)] if getattr(track, 'artists', None) else [],
+        "album": album.name if hasattr(album, 'name') else "Unknown",
+        "album_id": str(album.id) if (album is not None and getattr(album, 'id', None)) else None,
+        "cover_url": cover_url,
         "track_number": getattr(track, 'track_num', None),
         "disc_number": getattr(track, 'volume_num', None),
         "duration": track.duration if hasattr(track, 'duration') else 0,
@@ -25,8 +45,10 @@ def format_track_data(track, source_track_id=None):
         "audio_quality": getattr(track, 'audio_quality', None),
         "audio_modes": getattr(track, 'audio_modes', None),
         "isrc": getattr(track, 'isrc', None),
+        "copyright": getattr(track, 'copyright', None),
         "version": getattr(track, 'version', None),
         "release_date": release_date.isoformat() if release_date else None,
+        "date_added": date_added.isoformat() if date_added else None,
         "url": f"https://tidal.com/browse/track/{track.id}?u"
     }
 
