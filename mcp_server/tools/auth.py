@@ -1,25 +1,28 @@
 """Authentication implementation logic."""
 import requests
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def tidal_login(flask_app_url: str) -> Dict[str, Any]:
-    """Implementation logic for TIDAL login."""
-    try:
-        # Call your Flask endpoint for TIDAL authentication
-        response = requests.get(f"{flask_app_url}/api/auth/login")
+    """Trigger or poll the non-blocking TIDAL OAuth login flow.
 
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()
-        else:
-            error_data = response.json()
-            return {
-                "status": "error",
-                "message": f"Authentication failed: {error_data.get('message', 'Unknown error')}"
-            }
-    except Exception as e:
+    The Flask endpoint returns one of:
+      - status="success" once the session is valid.
+      - status="pending" with a verification_url the user must open.
+      - status="error" on failure.
+    """
+    try:
+        response = requests.get(f"{flask_app_url}/api/auth/login", timeout=10)
+    except requests.RequestException as e:
         return {
             "status": "error",
-            "message": f"Failed to connect to TIDAL authentication service: {str(e)}"
+            "message": f"Failed to connect to TIDAL authentication service: {e}",
+        }
+
+    try:
+        return response.json()
+    except ValueError:
+        return {
+            "status": "error",
+            "message": f"Unexpected response from auth service (HTTP {response.status_code})",
         }

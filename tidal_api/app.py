@@ -70,13 +70,10 @@ def requires_tidal_auth(f):
 @app.route('/api/auth/login', methods=['GET'])
 def login():
     """
-    Initiates the TIDAL authentication process.
-    Automatically opens a browser for the user to login to their TIDAL account.
+    Non-blocking OAuth login. Returns a verification URL on the first call;
+    poll by calling again until the response is `status: "success"`.
     """
-    def log_message(msg):
-        print(f"TIDAL AUTH: {msg}")
-
-    result, status_code = handle_login(SESSION_FILE, log_fn=log_message)
+    result, status_code = handle_login(SESSION_FILE)
     return jsonify(result), status_code
 
 

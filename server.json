@@ -6,7 +6,7 @@
     "url": "https://github.com/ibeal/tidal-mcp",
     "source": "github"
   },
-  "version": "0.4.0",
+  "version": "0.6.0",
   "packages": [
     {
       "registryType": "oci",

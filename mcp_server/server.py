@@ -127,11 +127,23 @@ def make_tidal_request(endpoint: str, params: Optional[Dict[str, Any]] = None, m
 @mcp.tool()
 def tidal_login() -> dict:
     """
-    Authenticate with TIDAL through browser login flow.
-    This will open a browser window for the user to log in to their TIDAL account.
+    Authenticate with TIDAL via OAuth device flow. This tool is non-blocking and
+    stateful — you may need to call it more than once to complete login.
+
+    Possible responses:
+      - {"status": "success", "user_id": ...}
+          The user is authenticated. No further action needed.
+      - {"status": "pending", "verification_url": "...", "expires_in": <seconds>}
+          A login is in progress. SHOW the verification_url to the user verbatim
+          and ask them to open it in their browser and approve the login. After
+          they confirm, CALL THIS TOOL AGAIN to finalize the session. You may
+          need to poll a few times (wait a few seconds between calls). The same
+          verification_url is returned on every pending poll until it expires.
+      - {"status": "error", "message": "..."}
+          Something failed; relay the message to the user.
 
     Returns:
-        A dictionary containing authentication status and user information if successful
+        A dictionary with the authentication status as described above.
     """
     return tidal_login_impl(FLASK_APP_URL)
 
